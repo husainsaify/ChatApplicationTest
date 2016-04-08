@@ -1,14 +1,17 @@
 package com.hackerkernel.chatapplication.gcm;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Build;
 import android.support.v4.app.NotificationCompat;
 import android.text.Html;
 import android.text.TextUtils;
@@ -23,13 +26,13 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
-import java.util.regex.Pattern;
 
-/**
- * Created by husain on 4/8/2016.
- */
+
 public class NotificationUtils {
     private static final String TAG = NotificationUtils.class.getSimpleName();
     private Context context;
@@ -79,23 +82,6 @@ public class NotificationUtils {
             showSmallNotification(mBuilder,icon,title,message,timestamp,pendingIntent,alarmSound);
         }
     }
-
-    private Bitmap getBitmapFromURL(String imageUrl) {
-        try {
-            URL url = new URL(imageUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setDoInput(true);
-            connection.connect();
-            InputStream inputStream = connection.getInputStream();
-            return BitmapFactory.decodeStream(inputStream);
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-            return null;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     private void showSmallNotification(NotificationCompat.Builder mBuilder, int icon, String title, String message, String timestamp, PendingIntent pendingIntent, Uri alarmSound) {
         NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle();
 
@@ -154,5 +140,64 @@ public class NotificationUtils {
         notificationManager.notify(Config.NOTIFICATION_ID_BIG_IMAGE,notification);
     }
 
+    private Bitmap getBitmapFromURL(String imageUrl) {
+        try {
+            URL url = new URL(imageUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setDoInput(true);
+            connection.connect();
+            InputStream inputStream = connection.getInputStream();
+            return BitmapFactory.decodeStream(inputStream);
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 
+    /*
+    * Method to check if the app is in background or not
+    * */
+    public static boolean isAppIsInBackground(Context context){
+        boolean isInBackground = true;
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT_WATCH){
+            List<ActivityManager.RunningAppProcessInfo> runningProcess = am.getRunningAppProcesses();
+
+            for (ActivityManager.RunningAppProcessInfo processInfo : runningProcess){
+                if (processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND){
+                    for (String activeProcess : processInfo.pkgList){
+                        if (activeProcess.equals(context.getPackageName())){
+                            isInBackground = false;
+                        }
+                    }
+                }
+            }
+        }else{
+            List<ActivityManager.RunningTaskInfo> taskInfo = am.getRunningTasks(1);
+            ComponentName componentInfo = taskInfo.get(0).topActivity;
+            if (componentInfo.getPackageName().equals(context.getPackageName())){
+                isInBackground = false;
+            }
+        }
+       return isInBackground;
+    }
+
+    public static void clearNotifications(){
+        NotificationManager manager = (NotificationManager) MyApplication.getInstance().getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.cancelAll();
+    }
+
+    private long getTimeMilliSec(String timestamp) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        try {
+            Date date = format.parse(timestamp);
+            return date.getTime();
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
 }
